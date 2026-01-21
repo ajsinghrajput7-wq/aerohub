@@ -1,0 +1,5 @@
+{
+  "name": "AeroHub",
+  "description": "A high-end aviation dashboard for analyzing hub bank structures, featuring raw data parsing, time-slot mapping, and regional categorization for airline operations.",
+  "requestFramePermissions": []
+}
