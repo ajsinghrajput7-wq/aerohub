@@ -16,6 +16,15 @@ export const BLR_CATCHMENT = new Set([
   'BLR', 'NAG', 'AGX', 'PNQ', 'RQY', 'KJB'
 ]);
 
+export const INDIAN_AIRPORTS = new Set([
+  'BLR', 'BOM', 'DEL', 'MAA', 'HYD', 'CCU', 'COK', 'AMD', 'LKO', 'TRV', 'PNQ', 'CNN', 'GWL', 'JAI', 
+  'IXE', 'AYJ', 'CCJ', 'GOX', 'GAU', 'BBI', 'VGA', 'VTZ', 'NMI', 'NAG', 'TRZ', 'IXZ', 'IXR', 'UDR', 
+  'IXC', 'IXB', 'HDO', 'JDH', 'STV', 'IDR', 'DED', 'IXD', 'IXA', 'RPR', 'HBX', 'BDQ', 'BHO', 'CJB', 
+  'IXM', 'IXG', 'NDC', 'VDY', 'KJB', 'TCR', 'JLR', 'BEK', 'ISK', 'SXV', 'DGH', 'IXJ', 'RDP', 'TIR', 
+  'SDW', 'JSA', 'KLH', 'HSR', 'RJA', 'AGR', 'IXU', 'AGX', 'RQY', 'SAG', 'JRG', 'KNU', 'PNY', 'VNS', 
+  'PAT', 'ATQ', 'GOI', 'IXX', 'SXR'
+]);
+
 export const AIRPORT_REGIONS: Record<string, Region> = {
   // Asia / Pacific
   'ICN': Region.AsiaPacific, 'NRT': Region.AsiaPacific, 'HKG': Region.AsiaPacific, 'SIN': Region.AsiaPacific,

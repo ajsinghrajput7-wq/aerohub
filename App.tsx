@@ -2,28 +2,20 @@
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HubSlot, Region, MarketSegment, FlightInfo } from './types';
-import { AIRPORT_REGIONS, TIME_SLOTS, REGION_COLORS } from './constants';
+import { AIRPORT_REGIONS, TIME_SLOTS, REGION_COLORS, INDIAN_AIRPORTS } from './constants';
 import HubBankChart from './components/HubBankChart';
 import DataTable from './components/DataTable';
 
-const INDIAN_AIRPORTS = new Set([
-  'BLR', 'BOM', 'DEL', 'MAA', 'HYD', 'CCU', 'COK', 'AMD', 'LKO', 'TRV', 'PNQ', 'CNN', 'GWL', 'JAI', 
-  'IXE', 'AYJ', 'CCJ', 'GOX', 'GAU', 'BBI', 'VGA', 'VTZ', 'NMI', 'NAG', 'TRZ', 'IXZ', 'IXR', 'UDR', 
-  'IXC', 'IXB', 'HDO', 'JDH', 'STV', 'IDR', 'DED', 'IXD', 'IXA', 'RPR', 'HBX', 'BDQ', 'BHO', 'CJB', 
-  'IXM', 'IXG', 'NDC', 'VDY', 'KJB', 'TCR', 'JLR', 'BEK', 'ISK', 'SXV', 'DGH', 'IXJ', 'RDP', 'TIR', 
-  'SDW', 'JSA', 'KLH', 'HSR', 'RJA', 'AGR', 'IXU', 'AGX', 'RQY', 'SAG', 'JRG', 'KNU', 'PNY', 'VNS', 
-  'PAT', 'ATQ', 'GOI', 'IXX', 'SXR'
-]);
-
 const App: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
+  const [fileName, setFileName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'raw' | 'hub'>('hub');
   const [loading, setLoading] = useState(false);
   const [selectedRegions, setSelectedRegions] = useState<Region[]>(Object.values(Region).filter(r => r !== Region.Unknown));
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [marketFilter, setMarketFilter] = useState<MarketSegment>(MarketSegment.All);
   const [alwaysFocusBLR, setAlwaysFocusBLR] = useState(true);
-  const [highlightCatchment, setHighlightCatchment] = useState(false); // New BLR-C Toggle state
+  const [highlightCatchment, setHighlightCatchment] = useState(false);
   const [airlineDropdownOpen, setAirlineDropdownOpen] = useState(false);
   const [airlineSearchQuery, setAirlineSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -62,6 +54,8 @@ const App: React.FC = () => {
       document.exitFullscreen();
     }
   };
+
+  const isBlrFile = useMemo(() => fileName.toUpperCase().includes('BLR'), [fileName]);
 
   const handleManualDrop = (slotIndex: number, type: 'arr' | 'dep', block: FlightInfo, fromSlot?: number) => {
     setManualBlocks(prev => {
@@ -195,12 +189,20 @@ const App: React.FC = () => {
       const idx = parseInt(key);
       const getRegion = (code: string) => AIRPORT_REGIONS[code.split('-')[0].toUpperCase()] || Region.Unknown;
       
-      const realArrivals = Object.entries(aggregation[idx].arrivals).map(([keyStr, val]) => ({
-        code: keyStr.split('-')[0], freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id
-      }));
-      const realDepartures = Object.entries(aggregation[idx].departures).map(([keyStr, val]) => ({
-        code: keyStr.split('-')[0], freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id
-      }));
+      const realArrivals = Object.entries(aggregation[idx].arrivals).map(([keyStr, val]) => {
+        const code = keyStr.split('-')[0];
+        return {
+          code, freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id,
+          isInternational: !INDIAN_AIRPORTS.has(code)
+        };
+      });
+      const realDepartures = Object.entries(aggregation[idx].departures).map(([keyStr, val]) => {
+        const code = keyStr.split('-')[0];
+        return {
+          code, freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id,
+          isInternational: !INDIAN_AIRPORTS.has(code)
+        };
+      });
 
       const manual = manualBlocks[idx] || { arrivals: [], departures: [] };
       slots[idx].arrivals = [...realArrivals, ...manual.arrivals];
@@ -228,6 +230,7 @@ const App: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFileName(file.name);
     setLoading(true);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -476,7 +479,8 @@ const App: React.FC = () => {
                  onHoverManualFlight={setHoveredManualFlight}
                  hoveredManualFlight={hoveredManualFlight}
                  freqMode={freqMode}
-                 highlightCatchment={highlightCatchment} // Pass the state to the chart
+                 highlightCatchment={highlightCatchment}
+                 isBlrFile={isBlrFile}
                />
             ) : (
                <DataTable data={data} freqMode={freqMode} />

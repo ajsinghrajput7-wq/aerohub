@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useLayoutEffect, useMemo, useEffect } from 'react';
 import { HubSlot, Region, FlightInfo } from '../types';
-import { REGION_COLORS, BLR_CATCHMENT } from '../constants';
+import { REGION_COLORS, BLR_CATCHMENT, INDIAN_AIRPORTS } from '../constants';
 
 interface HubBankChartProps {
   data: HubSlot[];
@@ -14,6 +14,7 @@ interface HubBankChartProps {
   onHoverManualFlight?: (hover: { slotIndex: number, type: 'arr' | 'dep', flightId?: string, isGroup?: boolean, code?: string } | null) => void;
   hoveredManualFlight?: { slotIndex: number, type: 'arr' | 'dep', flightId?: string, isGroup?: boolean, code?: string } | null;
   freqMode?: 'weekly' | 'daily';
+  isBlrFile?: boolean;
 }
 
 interface PinnedIntel {
@@ -35,7 +36,8 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
   mct = 1.5,
   onHoverManualFlight,
   hoveredManualFlight,
-  freqMode = 'weekly'
+  freqMode = 'weekly',
+  isBlrFile = false
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -189,14 +191,25 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
     const stats: Record<string, number> = {};
     const uniquePortsByRegion: Record<string, Set<string>> = {};
     const regionAirportStats: Record<string, Record<string, number>> = {};
+    const catchmentPorts: Record<string, number> = {};
+    const otherIndianPorts: Record<string, number> = {};
+    const intlPorts: Record<string, number> = {};
+    
     let totalFreq = 0;
+    let catchmentFreq = 0;
+    let otherIndianFreq = 0;
+    let internationalFreq = 0;
 
     const sourceFlights = source.type === 'arr' ? consolidatedData[source.slotIndex].arrivals : consolidatedData[source.slotIndex].departures;
     const sourceFlight = source.flightId 
       ? sourceFlights.find(f => f.id === source.flightId) 
       : (sourceFlights.find(f => f.code === 'BLR' || f.isManual) || sourceFlights[0]);
 
-    if (!sourceFlight) return { topRegions: [], totalFreq: 0, windowStart: '00:00', windowEnd: '00:00', focusTime: '00:00' };
+    if (!sourceFlight) return { 
+      topRegions: [], totalFreq: 0, catchmentFreq: 0, otherIndianFreq: 0, internationalFreq: 0, 
+      windowStart: '00:00', windowEnd: '00:00', focusTime: '00:00', 
+      catchmentPorts: [], otherIndianPorts: [], intlPorts: [] 
+    };
 
     const individualFlights = (sourceFlight as any).mergedFlights || [sourceFlight];
     const timings = individualFlights.map((f: any) => getMinutes(source.slotIndex, f.exactTime)).sort((a: any, b: any) => a - b);
@@ -209,13 +222,27 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
       
       targetFlights.forEach(targetFlight => {
         if (isFlightInConnectionWindow(sourceFlight, source.slotIndex, source.type, targetFlight, targetSlotIdx, targetType)) {
+          const code = targetFlight.code;
+          const isCatchment = BLR_CATCHMENT.has(code);
+          const isIndian = INDIAN_AIRPORTS.has(code);
+          
+          totalFreq += targetFlight.freq;
           stats[targetFlight.region] = (stats[targetFlight.region] || 0) + targetFlight.freq;
           if (!uniquePortsByRegion[targetFlight.region]) uniquePortsByRegion[targetFlight.region] = new Set();
-          uniquePortsByRegion[targetFlight.region].add(targetFlight.code);
-          
+          uniquePortsByRegion[targetFlight.region].add(code);
           if (!regionAirportStats[targetFlight.region]) regionAirportStats[targetFlight.region] = {};
-          regionAirportStats[targetFlight.region][targetFlight.code] = (regionAirportStats[targetFlight.region][targetFlight.code] || 0) + targetFlight.freq;
-          totalFreq += targetFlight.freq;
+          regionAirportStats[targetFlight.region][code] = (regionAirportStats[targetFlight.region][code] || 0) + targetFlight.freq;
+
+          if (isCatchment) {
+            catchmentFreq += targetFlight.freq;
+            catchmentPorts[code] = (catchmentPorts[code] || 0) + targetFlight.freq;
+          } else if (isIndian) {
+            otherIndianFreq += targetFlight.freq;
+            otherIndianPorts[code] = (otherIndianPorts[code] || 0) + targetFlight.freq;
+          } else {
+            internationalFreq += targetFlight.freq;
+            intlPorts[code] = (intlPorts[code] || 0) + targetFlight.freq;
+          }
         }
       });
     });
@@ -232,6 +259,12 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
     return { 
       topRegions, 
       totalFreq, 
+      catchmentFreq,
+      otherIndianFreq,
+      internationalFreq,
+      catchmentPorts: Object.entries(catchmentPorts).sort((a, b) => b[1] - a[1]).slice(0, 5),
+      otherIndianPorts: Object.entries(otherIndianPorts).sort((a, b) => b[1] - a[1]).slice(0, 5),
+      intlPorts: Object.entries(intlPorts).sort((a, b) => b[1] - a[1]).slice(0, 5),
       windowStart: formatMins((earliestMins + (source.type === 'arr' ? Math.round(mct * 60) : -Math.round(maxConnectionWindow * 60) - Math.round(mct * 60)) + 1440) % 1440), 
       windowEnd: formatMins((latestMins + (source.type === 'arr' ? Math.round(maxConnectionWindow * 60) + Math.round(mct * 60) : -Math.round(mct * 60)) + 1440) % 1440),
       focusTime: sourceFlight.isManual ? sourceFlight.exactTime : `${formatMins(earliestMins)}${individualFlights.length > 1 ? '+' : ''}`
@@ -292,7 +325,12 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
         ? sourceFlights.find(f => f.id === hoveredManualFlight.flightId)
         : (sourceFlights.find(f => f.code === 'BLR' || f.isManual) || sourceFlights[0]);
       
-      const isSourceEligible = sourceFlight && (sourceFlight.isManual || sourceFlight.code === 'BLR');
+      const isSourceEligible = sourceFlight && (
+        sourceFlight.isManual || 
+        sourceFlight.code === 'BLR' || 
+        (isBlrFile && (sourceFlight as any).isInternational)
+      );
+
       if (isSourceEligible) {
         isConn = isFlightInConnectionWindow(sourceFlight, hoveredManualFlight.slotIndex, hoveredManualFlight.type, flight, slotIndex, type);
       }
@@ -306,7 +344,6 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
       if (isManual) {
         classes += type === 'arr' ? 'bg-[#00ff9d] text-[#004d30] shadow-[0_0_15px_rgba(0,255,157,0.5)] border-2 border-dashed border-white/60 z-30 cursor-pointer ' : 'bg-[#6366f1] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border-2 border-dashed border-white/60 z-30 cursor-pointer ';
       } else if (highlightCatchment && isCatchment) {
-        // Neon Orange highlight for Catchment
         classes += 'bg-[#ff5f1f] text-white shadow-[0_0_12px_rgba(255,95,31,0.8)] z-20 ';
       } else {
         classes += `${REGION_COLORS[flight.region as Region] || 'bg-slate-100'} `;
@@ -330,7 +367,7 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
   const IntelCard = ({ source, flight, onRemove, isPinned, onDragStart }: { source: { slotIndex: number, type: 'arr' | 'dep', flightId?: string }, flight: FlightInfo, onRemove?: () => void, isPinned?: boolean, onDragStart?: (e: React.MouseEvent) => void }) => {
     const summary = getSummary(source);
     const individualFlights = (flight as any).mergedFlights || [flight];
-    const isPrimaryTarget = flight.isManual || flight.code === 'BLR';
+    const isPrimaryTarget = flight.isManual || flight.code === 'BLR' || (isBlrFile && (flight as any).isInternational);
     
     return (
       <div className={`bg-slate-900/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl p-4 w-80 text-white overflow-hidden ${isPinned ? 'cursor-default ring-1 ring-indigo-500/50' : 'pointer-events-none'}`}>
@@ -378,32 +415,81 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                 </span>
               </div>
               
-              <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
-                {summary.topRegions.map(({ region, freq, uniqueCount, topPorts }) => (
-                  <div key={region} className="space-y-2 bg-white/5 p-2 rounded-lg border border-white/5">
-                    <div className="flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-black uppercase tracking-tight text-indigo-300">{region}</span>
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{uniqueCount} Ports</span>
-                      </div>
-                      <span className="text-[10px] font-black bg-indigo-500/30 px-2 py-0.5 rounded text-white border border-indigo-500/20">
-                        {formatVal(freq)} {freqMode === 'weekly' ? 'Ops' : 'Daily'}
-                      </span>
+              {isBlrFile ? (
+                <div className="space-y-3">
+                  {/* 1. BLR-C Section */}
+                  <div className="bg-[#ff5f1f]/10 border border-[#ff5f1f]/30 rounded-lg p-2 shadow-inner">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[10px] font-black text-[#ff5f1f] uppercase tracking-tighter">1. BLR-C Connections</p>
+                      <span className="text-[9px] font-black text-white bg-[#ff5f1f] px-1.5 rounded">{formatVal(summary.catchmentFreq)}</span>
                     </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${(freq / Math.max(1, summary.totalFreq)) * 100}%` }} />
-                    </div>
-                    <div className="flex gap-1.5 pt-1">
-                      {topPorts.map(([code, pFreq]) => (
-                        <div key={code} className="flex-1 bg-slate-800/50 rounded px-2 py-1.5 text-center border border-white/5 shadow-inner">
-                          <div className="text-[11px] font-black text-slate-100">{code}</div>
-                          <div className="text-[8px] font-bold text-indigo-400">{formatVal(pFreq)}</div>
-                        </div>
-                      ))}
+                    <div className="flex flex-wrap gap-1">
+                      {summary.catchmentPorts.length > 0 ? summary.catchmentPorts.map(([code, f]) => (
+                        <span key={code} className="text-[8px] font-black bg-slate-800 px-1.5 py-0.5 rounded border border-white/5">
+                          {code} <span className="text-[#ff5f1f]">{formatVal(f)}</span>
+                        </span>
+                      )) : <span className="text-[8px] italic text-slate-500">None found</span>}
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* 2. Other Indian Section */}
+                  <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-2 shadow-inner">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-tighter">2. Other Indian Connections</p>
+                      <span className="text-[9px] font-black text-white bg-indigo-500 px-1.5 rounded">{formatVal(summary.otherIndianFreq)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {summary.otherIndianPorts.length > 0 ? summary.otherIndianPorts.map(([code, f]) => (
+                        <span key={code} className="text-[8px] font-black bg-slate-800 px-1.5 py-0.5 rounded border border-white/5">
+                          {code} <span className="text-indigo-400">{formatVal(f)}</span>
+                        </span>
+                      )) : <span className="text-[8px] italic text-slate-500">None found</span>}
+                    </div>
+                  </div>
+
+                  {/* 3. International Section */}
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 shadow-inner">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[10px] font-black text-emerald-300 uppercase tracking-tighter">3. International Connections</p>
+                      <span className="text-[9px] font-black text-white bg-emerald-500 px-1.5 rounded">{formatVal(summary.internationalFreq)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {summary.intlPorts.length > 0 ? summary.intlPorts.map(([code, f]) => (
+                        <span key={code} className="text-[8px] font-black bg-slate-800 px-1.5 py-0.5 rounded border border-white/5">
+                          {code} <span className="text-emerald-400">{formatVal(f)}</span>
+                        </span>
+                      )) : <span className="text-[8px] italic text-slate-500">None found</span>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[250px] overflow-y-auto no-scrollbar pr-1">
+                  {summary.topRegions.map(({ region, freq, uniqueCount, topPorts }) => (
+                    <div key={region} className="space-y-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                      <div className="flex justify-between items-center">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-black uppercase tracking-tight text-indigo-300">{region}</span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{uniqueCount} Ports</span>
+                        </div>
+                        <span className="text-[10px] font-black bg-indigo-500/30 px-2 py-0.5 rounded text-white border border-indigo-500/20">
+                          {formatVal(freq)} {freqMode === 'weekly' ? 'Ops' : 'Daily'}
+                        </span>
+                      </div>
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-50 rounded-full transition-all duration-1000" style={{ width: `${(freq / Math.max(1, summary.totalFreq)) * 100}%` }} />
+                      </div>
+                      <div className="flex gap-1.5 pt-1">
+                        {topPorts.map(([code, pFreq]) => (
+                          <div key={code} className="flex-1 bg-slate-800/50 rounded px-2 py-1.5 text-center border border-white/5 shadow-inner">
+                            <div className="text-[11px] font-black text-slate-100">{code}</div>
+                            <div className="text-[8px] font-bold text-indigo-400">{formatVal(pFreq)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
