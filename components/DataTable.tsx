@@ -24,25 +24,45 @@ const DataTable: React.FC<DataTableProps> = ({ data, freqMode = 'weekly' }) => {
     return val;
   };
 
+  const formatStats = (val: number) => {
+    if (freqMode === 'daily') return (val / 7).toFixed(1);
+    return val || '0';
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
       <div className="overflow-x-auto overflow-y-auto">
-        <table className="w-full text-left text-sm border-collapse min-w-[1300px]">
+        <table className="w-full text-left text-sm border-collapse min-w-[2200px]">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Arr Airline</th>
+              <th className="px-4 py-4 font-black text-indigo-600 uppercase text-[10px] tracking-wider">Arr Flight No</th>
+              <th className="px-4 py-4 font-black text-indigo-800 uppercase text-[10px] tracking-wider bg-indigo-50/10">Arr Flight (Full)</th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Origin</th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Region</th>
               <th className="px-4 py-4 font-black text-[#006a4e] bg-[#006a4e]/5 uppercase text-[10px] tracking-wider text-center">
                 {freqMode === 'weekly' ? 'Arr Freq (W)' : 'Arr Daily'}
               </th>
+              <th className="px-4 py-4 font-black text-[#006a4e] bg-[#006a4e]/5 uppercase text-[10px] tracking-wider text-center">
+                {freqMode === 'weekly' ? 'Arr Seats (W)' : 'Arr Seats (D)'}
+              </th>
+              <th className="px-4 py-4 font-black text-[#006a4e] bg-[#006a4e]/5 uppercase text-[10px] tracking-wider text-center">
+                Arr Pax
+              </th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Arr Time</th>
-              <th className="px-4 py-4 font-black text-white bg-[#006a4e] uppercase text-[10px] tracking-widest text-center">Hub Time</th>
+              <th className="px-4 py-4 font-black text-white bg-slate-900 uppercase text-[10px] tracking-widest text-center">Hub Time</th>
               <th className="px-4 py-4 font-black text-indigo-700 bg-indigo-50/10 uppercase text-[10px] tracking-wider">Dest Airport</th>
+              <th className="px-4 py-4 font-black text-indigo-600 uppercase text-[10px] tracking-wider">Dep Flight No</th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Dest Region</th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider">Dep Time</th>
               <th className="px-4 py-4 font-black text-indigo-700 bg-indigo-50/50 uppercase text-[10px] tracking-wider text-center">
                 {freqMode === 'weekly' ? 'Dep Freq (W)' : 'Dep Daily'}
+              </th>
+              <th className="px-4 py-4 font-black text-indigo-700 bg-indigo-50/50 uppercase text-[10px] tracking-wider text-center">
+                {freqMode === 'weekly' ? 'Dep Seats (W)' : 'Dep Seats (D)'}
+              </th>
+              <th className="px-4 py-4 font-black text-indigo-700 bg-indigo-50/50 uppercase text-[10px] tracking-wider text-center">
+                Dep Pax
               </th>
               <th className="px-4 py-4 font-black text-slate-500 uppercase text-[10px] tracking-wider text-right">Dep Airline</th>
             </tr>
@@ -51,18 +71,35 @@ const DataTable: React.FC<DataTableProps> = ({ data, freqMode = 'weekly' }) => {
             {data.map((row, idx) => (
               <tr key={idx} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 font-bold text-slate-500 italic">{row.arrivalAirline || '—'}</td>
+                <td className="px-4 py-3 font-black text-indigo-600">{row.arrivalFlightNo || '—'}</td>
+                <td className="px-4 py-3 font-black text-indigo-800 bg-indigo-50/5">
+                  {row.arrivalAirline && row.arrivalFlightNo ? `${row.arrivalAirline} ${row.arrivalFlightNo}` : (row.arrivalAirline || row.arrivalFlightNo || '—')}
+                </td>
                 <td className="px-4 py-3 font-bold text-[#006a4e]">{row.arrivalCode || '—'}</td>
                 <td className="px-4 py-3">{getRegionTag(row.arrivalCode)}</td>
                 <td className="px-4 py-3 text-slate-900 font-black text-center bg-[#006a4e]/5">
                   {formatFreq(row.arrivalFreq || 0)}
                 </td>
+                <td className="px-4 py-3 text-slate-900 font-black text-center bg-[#006a4e]/5">
+                  {formatStats(row.arrivalSeats)}
+                </td>
+                <td className="px-4 py-3 text-slate-900 font-black text-center bg-[#006a4e]/5">
+                  {formatStats(row.arrivalPax)}
+                </td>
                 <td className="px-4 py-3 text-slate-500">{row.arrivalTime || ''}</td>
-                <td className="px-4 py-3 font-black text-slate-900 bg-slate-100/50 text-center">{row.hub_time}</td>
+                <td className="px-4 py-3 font-black text-slate-900 bg-slate-100 text-center tabular-nums">{row.hub_time}</td>
                 <td className="px-4 py-3 font-bold text-indigo-700 bg-indigo-50/5">{row.departureCode || '—'}</td>
+                <td className="px-4 py-3 font-black text-indigo-600">{row.departureFlightNo || '—'}</td>
                 <td className="px-4 py-3">{getRegionTag(row.departureCode)}</td>
                 <td className="px-4 py-3 text-slate-500">{row.departureTime || ''}</td>
                 <td className="px-4 py-3 text-slate-900 font-black text-center bg-indigo-50/50">
                   {formatFreq(row.departureFreq || 0)}
+                </td>
+                <td className="px-4 py-3 text-slate-900 font-black text-center bg-indigo-50/50">
+                  {formatStats(row.departureSeats)}
+                </td>
+                <td className="px-4 py-3 text-slate-900 font-black text-center bg-indigo-50/50">
+                  {formatStats(row.departurePax)}
                 </td>
                 <td className="px-4 py-3 font-bold text-slate-500 italic text-right">{row.departureAirline || '—'}</td>
               </tr>

@@ -1,5 +1,4 @@
 
-import { GoogleGenAI } from "@google/genai";
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HubSlot, Region, MarketSegment, FlightInfo } from './types';
 import { AIRPORT_REGIONS, TIME_SLOTS, REGION_COLORS, INDIAN_AIRPORTS } from './constants';
@@ -11,7 +10,7 @@ const App: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'raw' | 'hub'>('hub');
   const [loading, setLoading] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState<Region[]>(Object.values(Region).filter(r => r !== Region.Unknown));
+  const [selectedRegions, setSelectedRegions] = useState<Region[]>([Region.Africa, Region.AsiaPacific, Region.Europe, Region.MiddleEast, Region.Americas]);
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [marketFilter, setMarketFilter] = useState<MarketSegment>(MarketSegment.All);
   const [alwaysFocusBLR, setAlwaysFocusBLR] = useState(true);
@@ -61,7 +60,7 @@ const App: React.FC = () => {
     setManualBlocks(prev => {
       const newBlocks = { ...prev };
       
-      if (fromSlot !== undefined && newBlocks[fromSlot]) {
+      if (block.isManual && fromSlot !== undefined && newBlocks[fromSlot]) {
         if (type === 'arr') {
            newBlocks[fromSlot].arrivals = newBlocks[fromSlot].arrivals.filter(b => b.id !== block.id);
         } else {
@@ -70,16 +69,47 @@ const App: React.FC = () => {
       }
 
       if (!newBlocks[slotIndex]) newBlocks[slotIndex] = { arrivals: [], departures: [] };
-      const blockWithId = block.id ? block : { ...block, id: Math.random().toString(36).substr(2, 9) };
       
-      if (!blockWithId.exactTime) {
-        blockWithId.exactTime = `${slotIndex.toString().padStart(2, '0')}:00`;
+      let finalCode = block.code;
+      if (!block.isManual) {
+        const base = block.code.replace(/ NEW( \d+)?$/, "");
+        const existingInSlot = type === 'arr' ? newBlocks[slotIndex].arrivals : newBlocks[slotIndex].departures;
+        
+        const regex = new RegExp(`^${base} NEW( (\\d+))?$`);
+        let maxSuffix = 0;
+        let foundAnyNew = false;
+        
+        existingInSlot.forEach(f => {
+          const match = f.code.match(regex);
+          if (match) {
+            foundAnyNew = true;
+            if (match[2]) {
+              maxSuffix = Math.max(maxSuffix, parseInt(match[2]));
+            } else {
+              maxSuffix = Math.max(maxSuffix, 1);
+            }
+          }
+        });
+
+        if (!foundAnyNew) {
+          finalCode = `${base} NEW`;
+        } else {
+          finalCode = `${base} NEW ${maxSuffix + 1}`;
+        }
       }
 
+      const newBlock: FlightInfo = {
+        ...block,
+        id: Math.random().toString(36).substr(2, 9),
+        isManual: true,
+        code: finalCode,
+        exactTime: block.exactTime || `${slotIndex.toString().padStart(2, '0')}:00`
+      };
+
       if (type === 'arr') {
-        newBlocks[slotIndex].arrivals = [...newBlocks[slotIndex].arrivals, blockWithId];
+        newBlocks[slotIndex].arrivals = [...newBlocks[slotIndex].arrivals, newBlock];
       } else {
-        newBlocks[slotIndex].departures = [...newBlocks[slotIndex].departures, blockWithId];
+        newBlocks[slotIndex].departures = [...newBlocks[slotIndex].departures, newBlock];
       }
       
       return newBlocks;
@@ -139,7 +169,10 @@ const App: React.FC = () => {
       departures: []
     }));
 
-    const aggregation: Record<number, { arrivals: Record<string, {freq: number, airline?: string, exactTime?: string, id?: string}>, departures: Record<string, {freq: number, airline?: string, exactTime?: string, id?: string}> }> = {};
+    const aggregation: Record<number, { 
+      arrivals: Record<string, {freq: number, seats: number, pax: number, airline?: string, flightNo?: string, exactTime?: string, id?: string}>, 
+      departures: Record<string, {freq: number, seats: number, pax: number, airline?: string, flightNo?: string, exactTime?: string, id?: string}> 
+    }> = {};
     TIME_SLOTS.forEach((_, i) => aggregation[i] = { arrivals: {}, departures: {} });
 
     data.forEach((row: any) => {
@@ -154,6 +187,7 @@ const App: React.FC = () => {
         const code = row.arrivalCode.toUpperCase();
         const region = getRegion(code);
         const airline = row.arrivalAirline;
+        const flightNo = row.arrivalFlightNo;
         const market = INDIAN_AIRPORTS.has(code) ? MarketSegment.Domestic : MarketSegment.International;
         
         const passesRegion = selectedRegions.includes(region) || (alwaysFocusBLR && code === 'BLR');
@@ -161,9 +195,21 @@ const App: React.FC = () => {
         const passesMarket = marketFilter === MarketSegment.All || market === marketFilter;
         
         if (passesRegion && passesAirline && passesMarket) {
-          const key = `${code}-${row.hub_time}`;
-          if (!aggregation[slotIndex].arrivals[key]) aggregation[slotIndex].arrivals[key] = { freq: 0, airline, exactTime: row.hub_time, id: Math.random().toString(36).substr(2, 9) };
+          const key = `${code}-${row.hub_time}-${flightNo || 'XX'}`;
+          if (!aggregation[slotIndex].arrivals[key]) {
+            aggregation[slotIndex].arrivals[key] = { 
+              freq: 0, 
+              seats: 0,
+              pax: 0,
+              airline, 
+              flightNo, 
+              exactTime: row.hub_time, 
+              id: Math.random().toString(36).substr(2, 9) 
+            };
+          }
           aggregation[slotIndex].arrivals[key].freq += (row.arrivalFreq || 0);
+          aggregation[slotIndex].arrivals[key].seats += (row.arrivalSeats || 0);
+          aggregation[slotIndex].arrivals[key].pax += (row.arrivalPax || 0);
         }
       }
       
@@ -171,6 +217,7 @@ const App: React.FC = () => {
         const code = row.departureCode.toUpperCase();
         const region = getRegion(code);
         const airline = row.departureAirline;
+        const flightNo = row.departureFlightNo;
         const market = INDIAN_AIRPORTS.has(code) ? MarketSegment.Domestic : MarketSegment.International;
 
         const passesRegion = selectedRegions.includes(region) || (alwaysFocusBLR && code === 'BLR');
@@ -178,9 +225,21 @@ const App: React.FC = () => {
         const passesMarket = marketFilter === MarketSegment.All || market === marketFilter;
 
         if (passesRegion && passesAirline && passesMarket) {
-          const key = `${code}-${row.hub_time}`;
-          if (!aggregation[slotIndex].departures[key]) aggregation[slotIndex].departures[key] = { freq: 0, airline, exactTime: row.hub_time, id: Math.random().toString(36).substr(2, 9) };
+          const key = `${code}-${row.hub_time}-${flightNo || 'XX'}`;
+          if (!aggregation[slotIndex].departures[key]) {
+            aggregation[slotIndex].departures[key] = { 
+              freq: 0, 
+              seats: 0,
+              pax: 0,
+              airline, 
+              flightNo, 
+              exactTime: row.hub_time, 
+              id: Math.random().toString(36).substr(2, 9) 
+            };
+          }
           aggregation[slotIndex].departures[key].freq += (row.departureFreq || 0);
+          aggregation[slotIndex].departures[key].seats += (row.departureSeats || 0);
+          aggregation[slotIndex].departures[key].pax += (row.departurePax || 0);
         }
       }
     });
@@ -192,16 +251,16 @@ const App: React.FC = () => {
       const realArrivals = Object.entries(aggregation[idx].arrivals).map(([keyStr, val]) => {
         const code = keyStr.split('-')[0];
         return {
-          code, freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id,
-          isInternational: !INDIAN_AIRPORTS.has(code)
-        };
+          code, freq: val.freq, seats: val.seats, pax: val.pax, region: getRegion(keyStr), airline: val.airline, flightNo: val.flightNo, exactTime: val.exactTime, id: val.id,
+          isInternational: !INDIAN_AIRPORTS.has(code), isManual: false
+        } as FlightInfo;
       });
       const realDepartures = Object.entries(aggregation[idx].departures).map(([keyStr, val]) => {
         const code = keyStr.split('-')[0];
         return {
-          code, freq: val.freq, region: getRegion(keyStr), airline: val.airline, exactTime: val.exactTime, id: val.id,
-          isInternational: !INDIAN_AIRPORTS.has(code)
-        };
+          code, freq: val.freq, seats: val.seats, pax: val.pax, region: getRegion(keyStr), airline: val.airline, flightNo: val.flightNo, exactTime: val.exactTime, id: val.id,
+          isInternational: !INDIAN_AIRPORTS.has(code), isManual: false
+        } as FlightInfo;
       });
 
       const manual = manualBlocks[idx] || { arrivals: [], departures: [] };
@@ -238,32 +297,55 @@ const App: React.FC = () => {
       const rows = text.split('\n').filter(row => row.trim().length > 0);
       if (rows.length < 2) { setLoading(false); return; }
       const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
-      const findIdx = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h === k.toLowerCase()));
+      
+      const findIdx = (keywords: string[]) => {
+        let idx = headers.findIndex(h => keywords.some(k => h === k.toLowerCase()));
+        if (idx !== -1) return idx;
+        return headers.findIndex(h => keywords.some(k => h.includes(k.toLowerCase())));
+      };
+      
+      const seatIndices = headers.reduce((acc: number[], h, i) => h.includes('seats') ? [...acc, i] : acc, []);
+      const arrSeatsIdx = seatIndices.length > 1 ? seatIndices[0] : (seatIndices[0] || -1);
+      const depSeatsIdx = seatIndices.length > 1 ? seatIndices[1] : -1;
+
+      const paxIndices = headers.reduce((acc: number[], h, i) => h.includes('pax') ? [...acc, i] : acc, []);
+      const arrPaxIdx = paxIndices.length > 1 ? paxIndices[0] : (paxIndices[0] || -1);
+      const depPaxIdx = paxIndices.length > 1 ? paxIndices[1] : -1;
+
       const headerMap = {
         airline: headers.findIndex(h => h.includes('airline')),
-        origin: findIdx(['origin', 'origin airport']),
+        origin: findIdx(['origin', 'origin airport', 'from']),
         depTime: headers.findIndex(h => h.includes('departure time')),
         hubTime: headers.findIndex(h => h.includes('hub time')),
         arrTime: headers.findIndex(h => h.includes('arrival time')),
-        arrival: findIdx(['arrival', 'arrival airport']),
+        arrival: findIdx(['arrival', 'arrival airport', 'destination', 'to']),
       };
+
       const parsedData: any[] = rows.slice(1).map(row => {
         const cols = row.split(',').map(c => c.trim());
         const arrivalFreq = (cols[3]?.match(/[1-7]/g) || []).length;
         const departureFreq = (cols[13]?.match(/[1-7]/g) || []).length;
+        
         return {
           arrivalAirline: cols[headerMap.airline] || "",
+          arrivalFlightNo: cols[1] || "", 
           arrivalCode: cols[headerMap.origin] || "",
           arrivalFreq,
+          arrivalSeats: parseInt(cols[arrSeatsIdx]) || 0,
+          arrivalPax: parseInt(cols[arrPaxIdx]) || 0,
           arrivalTime: cols[headerMap.depTime] || "",
           hub_time: cols[headerMap.hubTime] || "",
           departureCode: cols[headerMap.arrival] || "", 
           departureTime: cols[headerMap.arrTime] || "",
           departureFreq,
-          departureAirline: cols[cols.length - 1] || "",
+          departureSeats: parseInt(cols[depSeatsIdx]) || 0,
+          departurePax: parseInt(cols[depPaxIdx]) || 0,
+          departureFlightNo: cols[cols.length - 2] || "", 
+          departureAirline: cols[16] || cols[cols.length - 1] || "",
           _raw: cols 
         };
       }).filter(r => !!r.hub_time);
+      
       setData(parsedData);
       setSelectedAirlines([]);
       setLoading(false);

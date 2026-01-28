@@ -31,7 +31,10 @@ export interface HubSlot {
 export interface FlightInfo {
   id?: string; // For manual blocks
   code: string;
+  flightNo?: string;
   freq: number;
+  seats?: number;
+  pax?: number;
   region: Region;
   airline?: string;
   market?: MarketSegment;
