@@ -719,6 +719,7 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
               </div>
               
               <div ref={modalScrollRef} className="flex-1 overflow-auto p-10 flex flex-col gap-10">
+                 {/* Individual Matrix Cards */}
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {selectedRefs.map((ref, idx) => {
                        const slot = consolidatedData[ref.slotIndex];
@@ -746,6 +747,7 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                             </div>
                             
                             <div className="p-6 flex-1 space-y-6 bg-white">
+                               {/* Connection DNA Sparkline */}
                                <div className="space-y-1.5">
                                   <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest">
                                     <span>Connection DNA</span>
@@ -756,12 +758,24 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                                       <div key={si} className={`h-full ${segment.color} transition-all duration-700`} style={{ width: `${(segment.val / total) * 100}%` }} />
                                     ))}
                                   </div>
+                                  <div className="flex gap-3 mt-1">
+                                    {dna.map((segment, si) => (
+                                      <div key={si} className="flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${segment.color}`} />
+                                        <span className="text-[7px] font-black text-slate-500">{segment.label}</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                </div>
 
                                <div className="grid grid-cols-2 gap-4">
                                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-1">TOTAL OPS</p>
                                      <p className="text-2xl font-black text-slate-900 tabular-nums">{formatVal(summary.totalFreq)}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-1">REACH (REG)</p>
+                                     <p className="text-2xl font-black text-slate-900 tabular-nums">{summary.networkBreadth}</p>
                                   </div>
                                </div>
 
@@ -772,6 +786,21 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                                         <span className="text-[9px] font-black text-emerald-800 uppercase">International</span>
                                         <span className="text-xs font-black text-emerald-900">{formatStats(summary.internationalPax)}</span>
                                      </div>
+                                     <div className="flex justify-between items-center bg-[#ff5f1f]/5 px-3 py-1.5 rounded-xl border border-[#ff5f1f]/20">
+                                        <span className="text-[9px] font-black text-[#ff5f1f] uppercase">Catchment (S.I.)</span>
+                                        <span className="text-xs font-black text-[#ff5f1f]">{formatStats(summary.catchmentPax)}</span>
+                                     </div>
+                                     <div className="flex justify-between items-center bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+                                        <span className="text-[9px] font-black text-indigo-800 uppercase">Domestic (Rest)</span>
+                                        <span className="text-xs font-black text-indigo-900">{formatStats(summary.otherIndianPax)}</span>
+                                     </div>
+                                  </div>
+                               </div>
+
+                               <div className="pt-4 mt-auto">
+                                  <div className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-slate-900 text-[#00ff9d] shadow-xl relative group">
+                                     <span className="text-[8px] font-black uppercase tracking-widest opacity-60">OPTIMIZED RANGE</span>
+                                     <span className="text-sm font-black tracking-widest tabular-nums">{summary.windowStart} - {summary.windowEnd}</span>
                                   </div>
                                </div>
                             </div>
@@ -780,7 +809,57 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                     })}
                  </div>
 
+                 {/* Comparison Metrics Table */}
+                 <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+                    <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                       <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-3">
+                         <i className="fas fa-table text-indigo-500"></i>
+                         Categorical Synergy matrix
+                       </h3>
+                    </div>
+                    <table className="w-full text-left">
+                       <thead>
+                          <tr className="bg-slate-100/50">
+                             <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Synergy Metric</th>
+                             {selectedRefs.map((ref, i) => (
+                               <th key={i} className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Bank {i + 1} ({consolidatedData[ref.slotIndex].label})</th>
+                             ))}
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                          <tr className="hover:bg-slate-50/50 transition-colors">
+                             <td className="px-6 py-4 text-xs font-bold text-slate-600">Catchment (S.I.) Pax Feed</td>
+                             {selectedRefs.map((ref, i) => (
+                               <td key={i} className="px-6 py-4 text-sm font-black text-[#ff5f1f] text-center">{formatStats(getSummary(ref).catchmentPax)}</td>
+                             ))}
+                          </tr>
+                          <tr className="hover:bg-slate-50/50 transition-colors">
+                             <td className="px-6 py-4 text-xs font-bold text-slate-600">International Pax Load</td>
+                             {selectedRefs.map((ref, i) => (
+                               <td key={i} className="px-6 py-4 text-sm font-black text-emerald-600 text-center">{formatStats(getSummary(ref).internationalPax)}</td>
+                             ))}
+                          </tr>
+                          <tr className="hover:bg-slate-50/50 transition-colors">
+                             <td className="px-6 py-4 text-xs font-bold text-slate-600">Rest of India Pax Load</td>
+                             {selectedRefs.map((ref, i) => (
+                               <td key={i} className="px-6 py-4 text-sm font-black text-indigo-600 text-center">{formatStats(getSummary(ref).otherIndianPax)}</td>
+                             ))}
+                          </tr>
+                          <tr className="hover:bg-slate-50/50 transition-colors">
+                             <td className="px-6 py-4 text-xs font-bold text-slate-600">Total Aggregate Pax</td>
+                             {selectedRefs.map((ref, i) => (
+                               <td key={i} className="px-6 py-4 text-sm font-black text-slate-900 text-center">{formatStats(getSummary(ref).totalPax)}</td>
+                             ))}
+                          </tr>
+                       </tbody>
+                    </table>
+                 </div>
+
+                 {/* AI Insights Engine Section */}
                  <div ref={aiSectionRef} className="bg-slate-900 rounded-[2.5rem] p-10 border border-white/10 relative overflow-hidden shadow-2xl">
+                    <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12">
+                       <i className="fas fa-brain text-[10rem] text-white"></i>
+                    </div>
                     <div className="relative z-10">
                        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
                           <div>
@@ -800,12 +879,20 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
 
                        {isAiLoading ? (
                          <div className="flex flex-col items-center justify-center py-24 text-indigo-400">
-                            <div className="animate-spin h-16 w-16 border-4 border-indigo-400 border-t-transparent rounded-full mb-6"></div>
-                            <p className="text-sm font-black uppercase tracking-[0.3em] mt-4">Simulating connection elasticity...</p>
+                            <div className="relative">
+                               <div className="animate-spin h-16 w-16 border-4 border-indigo-400 border-t-transparent rounded-full mb-6"></div>
+                               <div className="absolute inset-0 animate-ping opacity-20 h-16 w-16 border-4 border-indigo-400 rounded-full"></div>
+                            </div>
+                            <p className="text-sm font-black uppercase tracking-[0.3em] animate-pulse mt-4">Simulating connection elasticity...</p>
                          </div>
-                       ) : aiInsight && (
+                       ) : aiInsight ? (
                          <div className="prose prose-invert max-w-none text-slate-200 text-base leading-loose overflow-y-auto max-h-[600px] bg-white/5 p-10 rounded-[2.5rem] border border-white/5 shadow-inner">
                             <div className="whitespace-pre-wrap font-medium">{aiInsight}</div>
+                         </div>
+                       ) : (
+                         <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-white/10 rounded-[2.5rem] bg-white/[0.02]">
+                            <i className="fas fa-microchip text-4xl text-white/10 mb-6"></i>
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-[0.4em]">Initialize synergy models for HH:mm shift insights</p>
                          </div>
                        )}
                     </div>
@@ -822,14 +909,40 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                 <h3 className={`text-xs font-black uppercase tracking-widest ${pendingDrop.type === 'arr' ? 'text-black' : 'text-white'}`}>
                   New {pendingDrop.type === 'arr' ? 'Arrival' : 'Departure'} Entry
                 </h3>
+                <button onClick={() => setPendingDrop(null)} className={pendingDrop.type === 'arr' ? 'text-black' : 'text-white'}>
+                  <i className="fas fa-times"></i>
+                </button>
              </div>
              <div className="p-6 space-y-4">
-                <input 
-                  type="time" 
-                  value={pendingDrop.block.exactTime}
-                  onChange={(e) => setPendingDrop({ ...pendingDrop, block: { ...pendingDrop.block, exactTime: e.target.value } })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 text-lg"
-                />
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                   <div className="flex flex-col">
+                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Target Code</span>
+                     <span className="text-xl font-black text-slate-800">{pendingDrop.block.code}</span>
+                   </div>
+                   <div className="text-right">
+                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Bank Hour</span>
+                     <span className="block text-xl font-black text-slate-800">{pendingDrop.slotIndex}:00</span>
+                   </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Optimization Time (HH:mm)</label>
+                  <input 
+                    type="time" 
+                    autoFocus
+                    value={pendingDrop.block.exactTime}
+                    onChange={(e) => {
+                      const newTime = e.target.value;
+                      setPendingDrop({ ...pendingDrop, block: { ...pendingDrop.block, exactTime: newTime } });
+                    }}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 text-lg focus:outline-none focus:ring-2 focus:ring-[#006a4e]"
+                  />
+                </div>
+                <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-[9px] font-bold text-amber-800 leading-tight">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Connections will be re-calculated in real-time based on this specific minute.
+                  </p>
+                </div>
                 <button 
                   onClick={() => {
                     if (pendingDrop && onManualDrop) {
@@ -837,7 +950,7 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                       setPendingDrop(null);
                     }
                   }}
-                  className="w-full py-3 bg-[#006a4e] text-white rounded-xl font-black uppercase text-[10px]"
+                  className="w-full py-3 bg-[#006a4e] text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg shadow-[#006a4e]/20 hover:bg-[#00523c] transition-all"
                 >
                   Confirm Entry
                 </button>
@@ -849,13 +962,57 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
       {editingFlight && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
            <div className="bg-white rounded-3xl shadow-2xl w-96 overflow-hidden border border-slate-200">
+             <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-white text-xs font-black uppercase tracking-widest">Global Optimization Picker</h3>
+                <button onClick={() => setEditingFlight(null)} className="text-slate-400 hover:text-white transition-colors">
+                  <i className="fas fa-times"></i>
+                </button>
+             </div>
              <div className="p-6 space-y-4">
-                <input 
-                  type="time" 
-                  value={editingFlight.flight.exactTime}
-                  onChange={(e) => setEditingFlight({ ...editingFlight, flight: { ...editingFlight.flight, exactTime: e.target.value } })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"
-                />
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Schedule Optimization Time</label>
+                  <input 
+                    type="time" 
+                    value={editingFlight.flight.exactTime}
+                    onChange={(e) => {
+                      const newTime = e.target.value;
+                      setEditingFlight({ ...editingFlight, flight: { ...editingFlight.flight, exactTime: newTime } });
+                    }}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 text-lg focus:outline-none focus:ring-2 focus:ring-[#006a4e]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">IATA Code</label>
+                    <input 
+                      type="text" 
+                      maxLength={12}
+                      value={editingFlight.flight.code}
+                      onChange={(e) => setEditingFlight({ ...editingFlight, flight: { ...editingFlight.flight, code: e.target.value.toUpperCase() } })}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006a4e]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Freq (1-7)</label>
+                    <input 
+                      type="number" 
+                      min={1} max={7}
+                      value={editingFlight.flight.freq}
+                      onChange={(e) => setEditingFlight({ ...editingFlight, flight: { ...editingFlight.flight, freq: parseInt(e.target.value) || 1 } })}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006a4e]"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Market Region</label>
+                  <select 
+                    value={editingFlight.flight.region}
+                    onChange={(e) => setEditingFlight({ ...editingFlight, flight: { ...editingFlight.flight, region: e.target.value as Region } })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#006a4e]"
+                  >
+                    {Object.values(Region).map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
                 <button 
                   onClick={() => {
                     if (editingFlight && onUpdateManualFlight) {
@@ -863,7 +1020,7 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                       setEditingFlight(null);
                     }
                   }}
-                  className="w-full py-3 bg-[#006a4e] text-white rounded-xl"
+                  className="w-full py-3 bg-[#006a4e] text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg shadow-[#006a4e]/20 hover:bg-[#00523c] transition-all"
                 >
                   Save Optimization
                 </button>
@@ -872,8 +1029,88 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
         </div>
       )}
 
+      {connectionSummary && hoveredManualFlight && !draggingPanelId && !editingFlight && (
+        <div 
+          className="fixed z-[9999] pointer-events-none transition-transform duration-100"
+          style={{ 
+            left: mousePos.x + 20, 
+            top: hoveredManualFlight.type === 'arr' ? mousePos.y - 300 : mousePos.y + 20 
+          }}
+        >
+          {(() => {
+            const slot = consolidatedData[hoveredManualFlight.slotIndex];
+            const flightList = hoveredManualFlight.type === 'arr' ? slot.arrivals : slot.departures;
+            const flight = hoveredManualFlight.flightId 
+              ? flightList.find(f => f.id === hoveredManualFlight.flightId)
+              : (flightList.find(f => f.code === 'BLR' || f.isManual) || flightList[0]);
+            return flight ? <IntelCard source={hoveredManualFlight} flight={flight} /> : null;
+          })()}
+        </div>
+      )}
+
+      {pinnedIntels.map((intel) => (
+        <div key={intel.id} className="fixed z-[9500] shadow-2xl" style={{ left: intel.x, top: intel.y }}>
+          <IntelCard 
+            source={{ slotIndex: intel.slotIndex, type: intel.type, flightId: intel.flight.id }} 
+            flight={intel.flight} 
+            isPinned={true}
+            onDragStart={(e) => startPanelDrag(e, intel.id)}
+            onRemove={() => setPinnedIntels(prev => prev.filter(p => p.id !== intel.id))}
+          />
+        </div>
+      ))}
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-2 flex justify-between items-center shrink-0 mx-2 mt-2">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xs font-black text-slate-900 tracking-tight uppercase">Bank Schedule</h2>
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 text-white rounded-lg shadow text-xs">
+             <span className="font-black opacity-60">ZOOM:</span>
+             <span className="font-black tabular-nums">{(scale * 100).toFixed(0)}%</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-[#006a4e] text-white rounded-lg shadow text-xs">
+             <span className="font-black opacity-60 uppercase">Mode:</span>
+             <span className="font-black uppercase">{freqMode === 'weekly' ? 'Weekly Freq' : 'Daily Dep'}</span>
+          </div>
+
+          {selectedRefs.length >= 1 && (
+            <button 
+              onClick={() => setIsCompareModalOpen(true)}
+              className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl shadow-lg shadow-amber-500/20 text-[11px] font-black uppercase tracking-widest transition-all animate-bounce flex items-center gap-2"
+            >
+              <i className="fas fa-microchip"></i>
+              {selectedRefs.length === 1 ? 'Analyze Unit' : `Compare Selected (${selectedRefs.length})`}
+            </button>
+          )}
+
+          {selectedRefs.length > 0 && (
+            <button 
+              onClick={() => setSelectedRefs([])}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg text-[9px] font-black uppercase text-slate-400 hover:text-red-500 hover:border-red-200 transition-all flex items-center gap-2 bg-slate-50"
+            >
+              <i className="fas fa-eraser"></i>
+              Deselect All
+            </button>
+          )}
+
+          {hoveredManualFlight && (
+            <div className={`px-3 py-1 border rounded-lg flex items-center gap-2 shadow-sm ${hoveredManualFlight.type === 'arr' ? 'bg-indigo-50 border-indigo-200' : 'bg-teal-50 border-teal-200'}`}>
+               <span className={`text-[10px] font-black uppercase tracking-widest ${hoveredManualFlight.type === 'arr' ? 'text-indigo-700' : 'text-teal-700'}`}>
+                 Analysis: {hoveredManualFlight.type === 'arr' ? 'Outbound' : 'Inbound'}
+               </span>
+            </div>
+          )}
+        </div>
+        <button 
+          onClick={() => { setIsFitToScreen(!isFitToScreen); if(isFitToScreen) setScale(1); }} 
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border shadow-sm ${isFitToScreen ? 'bg-[#006a4e] text-white border-[#006a4e]' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+        >
+          <i className={`fas ${isFitToScreen ? 'fa-expand-arrows-alt' : 'fa-compress-arrows-alt'}`}></i>
+          {isFitToScreen ? 'Reset Zoom' : 'Fit to Screen'}
+        </button>
+      </div>
+
       <div className={`relative flex-1 overflow-hidden flex items-center justify-center ${isFitToScreen ? 'bg-white' : 'bg-slate-50 p-2'}`}>
-         <div className={`w-full h-full overflow-auto flex items-center justify-center transition-all duration-300`}>
+         <div className={`w-full h-full overflow-auto flex items-center justify-center transition-all duration-300 ${isFitToScreen ? 'no-scrollbar' : 'p-4'}`}>
             <div 
               ref={chartRef} 
               style={{ transform: `scale(${scale})`, transformOrigin: 'center center', minWidth: 'max-content', margin: 'auto' }}
@@ -891,13 +1128,36 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                             key={`arr-slot-${slotIndex}-${rowIndex}`} 
                             onDragOver={(e) => handleDragOver(e, slotIndex, 'arr')}
                             onDrop={(e) => handleDrop(e, slotIndex, 'arr')}
+                            onDragLeave={() => setDragOverSlot(null)}
                             onMouseEnter={() => isTarget && onHoverManualFlight?.({ slotIndex, type: 'arr', flightId: flight?.id })}
                             onMouseLeave={() => onHoverManualFlight?.(null)}
                             onClick={(e) => isTarget && handleFlightClick(e, slotIndex, 'arr', flight)}
                             onDoubleClick={() => isTarget && handleFlightDoubleClick(slotIndex, 'arr', flight)}
                             className={`w-24 border-r border-b border-slate-100 flex items-center justify-center cursor-default ${getCellClasses(flight, rowIndex, 'arr', slotIndex)}`}
+                            draggable={!!flight}
+                            onDragStart={(e) => {
+                              if (flight) {
+                                e.dataTransfer.setData('block', JSON.stringify(flight));
+                                e.dataTransfer.setData('blockId', flight.id || '');
+                                e.dataTransfer.setData('fromSlot', slotIndex.toString());
+                                e.dataTransfer.setData('type', 'arr');
+                              }
+                            }}
                           >
-                            {flight && <span className="text-2xl font-black tracking-tighter select-none">{flight.code}</span>}
+                            {flight && (
+                              <div className="flex items-center justify-center w-full h-full relative group/block">
+                                <span className="text-2xl font-black tracking-tighter select-none">{flight.code}</span>
+                                {(flight.isManual || (flight as any).isMerged) && (
+                                  <div className={`absolute top-1 right-1 w-4 h-4 text-white rounded flex items-center justify-center text-[8px] font-black z-10 ${ (flight as any).isMerged ? 'bg-indigo-600' : (flight.code.includes(' NEW') ? 'bg-red-600' : 'bg-slate-900') }`}>
+                                    {(flight as any).isMerged ? '+' : (flight.code.includes(' NEW') ? 'N' : 'S')}
+                                  </div>
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm text-white py-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity flex flex-col items-center pointer-events-none">
+                                  <span className="text-[7px] font-black uppercase leading-none">{(flight as any).isMerged ? 'MULTI' : (flight.exactTime || '--:--')}</span>
+                                  <span className="text-[7px] font-bold leading-none mt-0.5">Total: {formatVal(flight.freq)}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -922,18 +1182,52 @@ const HubBankChart: React.FC<HubBankChartProps> = ({
                             key={`dep-slot-${slotIndex}-${rowIndex}`} 
                             onDragOver={(e) => handleDragOver(e, slotIndex, 'dep')}
                             onDrop={(e) => handleDrop(e, slotIndex, 'dep')}
+                            onDragLeave={() => setDragOverSlot(null)}
                             onMouseEnter={() => isTarget && onHoverManualFlight?.({ slotIndex, type: 'dep', flightId: flight?.id })}
                             onMouseLeave={() => onHoverManualFlight?.(null)}
                             onClick={(e) => isTarget && handleFlightClick(e, slotIndex, 'dep', flight)}
                             onDoubleClick={() => isTarget && handleFlightDoubleClick(slotIndex, 'dep', flight)}
                             className={`w-24 border-r border-b border-slate-100 flex items-center justify-center cursor-default ${getCellClasses(flight, rowIndex, 'dep', slotIndex)}`}
+                            draggable={!!flight}
+                            onDragStart={(e) => {
+                              if (flight) {
+                                e.dataTransfer.setData('block', JSON.stringify(flight));
+                                e.dataTransfer.setData('blockId', flight.id || '');
+                                e.dataTransfer.setData('fromSlot', slotIndex.toString());
+                                e.dataTransfer.setData('type', 'dep');
+                              }
+                            }}
                           >
-                            {flight && <span className="text-2xl font-black tracking-tighter select-none">{flight.code}</span>}
+                            {flight && (
+                              <div className="flex items-center justify-center w-full h-full relative group/block">
+                                 <span className="text-2xl font-black tracking-tighter select-none">{flight.code}</span>
+                                {(flight.isManual || (flight as any).isMerged) && (
+                                  <div className={`absolute top-1 right-1 w-4 h-4 text-white rounded flex items-center justify-center text-[8px] font-black z-10 ${ (flight as any).isMerged ? 'bg-indigo-600' : (flight.code.includes(' NEW') ? 'bg-red-600' : 'bg-slate-900') }`}>
+                                    {(flight as any).isMerged ? '+' : (flight.code.includes(' NEW') ? 'N' : 'S')}
+                                  </div>
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm text-white py-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity flex flex-col items-center pointer-events-none">
+                                  <span className="text-[7px] font-black uppercase leading-none">{(flight as any).isMerged ? 'MULTI' : (flight.exactTime || '--:--')}</span>
+                                  <span className="text-[7px] font-bold leading-none mt-0.5">Total: {formatVal(flight.freq)}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   ))}
+                </div>
+                <div className="absolute -left-16 top-0 bottom-0 flex flex-col justify-between pointer-events-none w-16">
+                    <div className="flex-1 flex items-center justify-center">
+                       <span className="-rotate-90 whitespace-nowrap text-sm font-black text-slate-900 tracking-[0.2em] uppercase opacity-40">Arrivals</span>
+                    </div>
+                    <div className="h-14 flex items-center justify-center bg-slate-900/10">
+                       <i className="fas fa-clock text-slate-800 text-xl opacity-20"></i>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                       <span className="-rotate-90 whitespace-nowrap text-sm font-black text-slate-900 tracking-[0.2em] uppercase opacity-40">Departures</span>
+                    </div>
                 </div>
               </div>
             </div>

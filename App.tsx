@@ -1,4 +1,5 @@
 
+import { GoogleGenAI } from "@google/genai";
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HubSlot, Region, MarketSegment, FlightInfo } from './types';
 import { AIRPORT_REGIONS, TIME_SLOTS, REGION_COLORS, INDIAN_AIRPORTS } from './constants';
@@ -341,7 +342,7 @@ const App: React.FC = () => {
           departureSeats: parseInt(cols[depSeatsIdx]) || 0,
           departurePax: parseInt(cols[depPaxIdx]) || 0,
           departureFlightNo: cols[cols.length - 2] || "", 
-          departureAirline: cols[16] || cols[cols.length - 1] || "",
+          departureAirline: cols[16] || cols[cols.length - 1] || "", // Column Q is index 16
           _raw: cols 
         };
       }).filter(r => !!r.hub_time);
