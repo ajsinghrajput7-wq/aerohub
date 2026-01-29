@@ -1,10 +1,14 @@
 
 import { GoogleGenAI } from "@google/genai";
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { HubSlot, Region, MarketSegment, FlightInfo } from './types';
+import { HubSlot, Region, MarketSegment, FlightInfo, WorkspaceSnapshot } from './types';
 import { AIRPORT_REGIONS, TIME_SLOTS, REGION_COLORS, INDIAN_AIRPORTS } from './constants';
 import HubBankChart from './components/HubBankChart';
 import DataTable from './components/DataTable';
+
+const STORAGE_KEY_SETTINGS = 'aerohub_workspace_settings';
+const STORAGE_KEY_BLOCKS = 'aerohub_manual_blocks';
+const STORAGE_KEY_SNAPSHOTS = 'aerohub_snapshots';
 
 const App: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
@@ -28,14 +32,52 @@ const App: React.FC = () => {
   const [mct, setMct] = useState(1.5); 
 
   const [hoveredManualFlight, setHoveredManualFlight] = useState<{ slotIndex: number, type: 'arr' | 'dep', flightId?: string } | null>(null);
+  
+  const [snapshots, setSnapshots] = useState<WorkspaceSnapshot[]>([]);
+  const [snapshotMenuOpen, setSnapshotMenuOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const snapshotRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<HTMLDivElement>(null);
+
+  // Persistence: Load on Mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    const savedBlocks = localStorage.getItem(STORAGE_KEY_BLOCKS);
+    const savedSnapshots = localStorage.getItem(STORAGE_KEY_SNAPSHOTS);
+
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setMct(settings.mct || 1.5);
+      setMaxConnectionWindow(settings.maxConnectionWindow || 6);
+      setSelectedRegions(settings.selectedRegions || [Region.Africa, Region.AsiaPacific, Region.Europe, Region.MiddleEast, Region.Americas]);
+      setMarketFilter(settings.marketFilter || MarketSegment.All);
+    }
+    if (savedBlocks) setManualBlocks(JSON.parse(savedBlocks));
+    if (savedSnapshots) setSnapshots(JSON.parse(savedSnapshots));
+  }, []);
+
+  // Persistence: Save settings and blocks on change
+  useEffect(() => {
+    const settings = { mct, maxConnectionWindow, selectedRegions, marketFilter };
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+  }, [mct, maxConnectionWindow, selectedRegions, marketFilter]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_BLOCKS, JSON.stringify(manualBlocks));
+  }, [manualBlocks]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SNAPSHOTS, JSON.stringify(snapshots));
+  }, [snapshots]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setAirlineDropdownOpen(false);
+      }
+      if (snapshotRef.current && !snapshotRef.current.contains(event.target as Node)) {
+        setSnapshotMenuOpen(false);
       }
     };
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -46,6 +88,45 @@ const App: React.FC = () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
+
+  const createSnapshot = () => {
+    const name = prompt("Enter Scenario Name:", `Analysis ${new Date().toLocaleTimeString()}`);
+    if (!name) return;
+    const newSnapshot: WorkspaceSnapshot = {
+      id: Math.random().toString(36).substr(2, 9),
+      name,
+      timestamp: Date.now(),
+      manualBlocks,
+      mct,
+      maxConnectionWindow,
+      selectedRegions,
+      marketFilter
+    };
+    setSnapshots(prev => [newSnapshot, ...prev]);
+    setSnapshotMenuOpen(false);
+  };
+
+  const loadSnapshot = (s: WorkspaceSnapshot) => {
+    setManualBlocks(s.manualBlocks);
+    setMct(s.mct);
+    setMaxConnectionWindow(s.maxConnectionWindow);
+    setSelectedRegions(s.selectedRegions);
+    setMarketFilter(s.marketFilter);
+    setSnapshotMenuOpen(false);
+  };
+
+  const deleteSnapshot = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSnapshots(prev => prev.filter(s => s.id !== id));
+  };
+
+  const clearWorkspace = () => {
+    if (confirm("Reset current workspace? This will remove all manual blocks.")) {
+      setManualBlocks({});
+      setMct(1.5);
+      setMaxConnectionWindow(6);
+    }
+  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -434,15 +515,59 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <button onClick={toggleFullscreen} className="text-slate-400 hover:text-slate-600 p-1.5 transition-colors">
-            <i className={`fas ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-sm`}></i>
-          </button>
-          <label className="flex items-center gap-2 bg-[#006a4e] hover:bg-[#00523c] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm">
-            <i className="fas fa-file-csv text-xs"></i>
-            <span className="text-[10px] font-black uppercase tracking-wider">CSV</span>
-            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-          </label>
+        <div className="flex items-center gap-3">
+          <div className="relative" ref={snapshotRef}>
+            <button 
+              onClick={() => setSnapshotMenuOpen(!snapshotMenuOpen)}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg transition-all shadow-sm"
+            >
+              <i className="fas fa-history text-xs text-indigo-400"></i>
+              <span className="text-[10px] font-black uppercase tracking-wider">Scenarios</span>
+            </button>
+            {snapshotMenuOpen && (
+              <div className="absolute top-full right-0 w-72 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col max-h-[400px]">
+                <div className="p-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Snapshot Manager</span>
+                  <button onClick={createSnapshot} className="text-[8px] font-black bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-500 uppercase">Capture</button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-2 space-y-2 no-scrollbar">
+                  {snapshots.length === 0 && <p className="text-[9px] text-slate-500 text-center py-4 uppercase font-bold">No saved scenarios</p>}
+                  {snapshots.map(s => (
+                    <div 
+                      key={s.id} 
+                      onClick={() => loadSnapshot(s)}
+                      className="w-full text-left p-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-indigo-500 group cursor-pointer transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-xs font-black text-white group-hover:text-indigo-400">{s.name}</span>
+                        <button onClick={(e) => deleteSnapshot(s.id, e)} className="text-slate-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
+                          <i className="fas fa-trash text-[10px]"></i>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3 text-[8px] font-black text-slate-500 uppercase">
+                        <span><i className="fas fa-clock mr-1"></i>{new Date(s.timestamp).toLocaleDateString()}</span>
+                        <span><i className="fas fa-plane mr-1"></i>MCT: {s.mct}h</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2 border-t border-slate-700 bg-slate-800/50">
+                  <button onClick={clearWorkspace} className="w-full py-2 text-[8px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest">Reset Current Workspace</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={toggleFullscreen} className="text-slate-400 hover:text-slate-600 p-1.5 transition-colors">
+              <i className={`fas ${isFullscreen ? 'fa-compress' : 'fa-expand'} text-sm`}></i>
+            </button>
+            <label className="flex items-center gap-2 bg-[#006a4e] hover:bg-[#00523c] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm">
+              <i className="fas fa-file-csv text-xs"></i>
+              <span className="text-[10px] font-black uppercase tracking-wider">CSV</span>
+              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            </label>
+          </div>
         </div>
       </header>
       

@@ -41,3 +41,14 @@ export interface FlightInfo {
   isManual?: boolean;
   exactTime?: string; // e.g. "10:15"
 }
+
+export interface WorkspaceSnapshot {
+  id: string;
+  name: string;
+  timestamp: number;
+  manualBlocks: Record<number, { arrivals: FlightInfo[], departures: FlightInfo[] }>;
+  mct: number;
+  maxConnectionWindow: number;
+  selectedRegions: Region[];
+  marketFilter: MarketSegment;
+}
