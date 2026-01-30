@@ -39,14 +39,22 @@ export interface FlightInfo {
   airline?: string;
   market?: MarketSegment;
   isManual?: boolean;
-  exactTime?: string; // e.g. "10:15"
+  exactTime?: string; // e.g. "10:15" (Current Manual Time)
+  originalHubTime?: string; // e.g. "10:05" (Anchor from CSV)
+}
+
+export interface AirportDataset {
+  id: string;
+  code: string;
+  fileName: string;
+  data: any[];
 }
 
 export interface WorkspaceSnapshot {
   id: string;
   name: string;
   timestamp: number;
-  manualBlocks: Record<number, { arrivals: FlightInfo[], departures: FlightInfo[] }>;
+  manualBlocks: Record<string, Record<number, { arrivals: FlightInfo[], departures: FlightInfo[] }>>;
   mct: number;
   maxConnectionWindow: number;
   selectedRegions: Region[];
